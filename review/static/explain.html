@@ -1,0 +1,245 @@
+<!-- Explanations shown by the review page: one <article> per thing on screen.
+     <p class="short"> is the pop-up text; everything after it is the full explanation.
+     Every number here is a constant in solution/mtah/*.py or review/build.py; change them together. -->
+
+<article data-key="final" data-title="Model">
+  <p class="short">The answer we submit: for every frame, home has the ball, away has the ball, or dead ball. It is not a per-frame guess. It adds up the evidence from two independent “views” and only changes its mind when enough evidence has piled up to pay a switching cost.</p>
+
+  <h3>1. Two views give evidence</h3>
+  <p>At every frame <i>t</i>, each view gives a score to each of the three states <i>s</i> ∈ {H, A, D}. The scores are simply added:</p>
+  <math display="block"><mrow><msub><mi>E</mi><mi>t</mi></msub><mo>(</mo><mi>s</mi><mo>)</mo><mo>=</mo><msubsup><mi>e</mi><mi>t</mi><mtext>ball</mtext></msubsup><mo>(</mo><mi>s</mi><mo>)</mo><mo>+</mo><msubsup><mi>e</mi><mi>t</mi><mtext>players</mtext></msubsup><mo>(</mo><mi>s</mi><mo>)</mo></mrow></math>
+  <p>The <a data-goto="ball_view">ball view</a> looks only at the ball and who is next to it. The <a data-goto="player_view">player view</a> never sees the ball and reads the situation from the players, the cameras and the tagging. Each is worth about one unit per frame at most.</p>
+
+  <h3>2. A sticky state machine joins them</h3>
+  <svg viewBox="0 0 560 210" role="img" aria-label="Three states, home, away and dead ball, with the cost of moving between them">
+    <defs><marker id="ex-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 10 5 0 10z" style="fill:var(--muted)"/></marker></defs>
+    <g style="stroke:var(--muted);fill:none;stroke-width:1.5" marker-end="url(#ex-arrow)" marker-start="url(#ex-arrow)">
+      <path d="M150 62 H410"/><path d="M118 92 L248 160"/><path d="M442 92 L312 160"/></g>
+    <circle cx="110" cy="62" r="38" style="fill:var(--rv-home)"/><circle cx="450" cy="62" r="38" style="fill:var(--rv-away)"/><circle cx="280" cy="170" r="34" style="fill:var(--rv-dead)"/>
+    <g style="fill:#fff;font:600 14px Poppins,Arial" text-anchor="middle"><text x="110" y="58">H</text><text x="110" y="76" style="font-weight:400;font-size:11px">home</text><text x="450" y="58">A</text><text x="450" y="76" style="font-weight:400;font-size:11px">away</text><text x="280" y="166">D</text><text x="280" y="183" style="font-weight:400;font-size:11px">dead ball</text></g>
+    <g style="fill:var(--ink);font:12px Poppins,Arial" text-anchor="middle"><text x="280" y="40">cost 4 while the ball is in the data</text><text x="280" y="56">cost 12 while it is not</text><text x="150" y="140">cost 12</text><text x="410" y="140">cost 12</text></g>
+  </svg>
+  <p>The model picks the whole sequence of labels at once: the one with the most evidence after paying for every change of state.</p>
+  <math display="block"><mrow><mo>(</mo><msub><mi>s</mi><mn>1</mn></msub><mo>,</mo><mo>…</mo><mo>,</mo><msub><mi>s</mi><mi>T</mi></msub><mo>)</mo><mo>=</mo><munder><mtext>arg max</mtext><mi>s</mi></munder><mrow><mo>[</mo><munder><mo>∑</mo><mi>t</mi></munder><msub><mi>E</mi><mi>t</mi></msub><mo>(</mo><msub><mi>s</mi><mi>t</mi></msub><mo>)</mo><mo>−</mo><munder><mo>∑</mo><mrow><mi>t</mi><mo>:</mo><mtext> </mtext><msub><mi>s</mi><mi>t</mi></msub><mo>≠</mo><msub><mi>s</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub></mrow></munder><msub><mi>c</mi><mi>t</mi></msub><mo>]</mo></mrow></mrow></math>
+  <p>This is solved exactly by the Viterbi algorithm, separately in each half. The cost <i>c</i><sub>t</sub> is what makes it “sticky”:</p>
+  <table class="ex-table"><tr><th>Change</th><th>Cost</th><th>What it means in practice</th></tr>
+    <tr><td>Home ↔ away, ball in the data</td><td>4</td><td>about a sixth of a second of clear evidence from the ball view; twice that if the ball is given straight back</td></tr>
+    <tr><td>Home ↔ away, ball not in the data</td><td>12</td><td>the model is guessing from the players, so it asks for three times more</td></tr>
+    <tr><td>Into or out of dead ball</td><td>12</td><td>about half a second of clear evidence</td></tr></table>
+  <p>That is how the challenge's rule “a simple touch is not a change of possession” becomes arithmetic: a touch is a few frames of evidence, and a few frames do not pay for two switches.</p>
+
+  <h3>3. Why sticky at all</h3>
+  <p>The ranking metric (<a data-goto="metric">spellF1</a>) counts possessions, not frames. A model that flickers every few frames invents dozens of possessions. The organisers' own baseline goes from 0.04 to 0.42 just by smoothing.</p>
+
+  <h3>4. Where it is weak</h3>
+  <ul><li>Possessions under about two seconds: some are missed, some are invented.</li><li>The exact frame of a change: often a second late, because the player view looks at several seconds at once.</li><li>Stoppages with no cue: a quick throw-in with the ball lost and the TV still live.</li></ul>
+  <p>The number next to the model's call (<a data-goto="confidence">“% sure”</a>) and the <a data-goto="doubt">doubt lane</a> show where it is on thin ice.</p>
+</article>
+
+<article data-key="prev" data-title="Previous version">
+  <p class="short">The model as it was until 16 November: who is on the ball was read with a hand-written formula (nearest player within 2.5 m). The current model reads it with a classifier trained on seven other matches. Everything else is the same. It is shown so you can see exactly which calls that change created.</p>
+  <h3>What changed</h3>
+  <table class="ex-table"><tr><th></th><th>Previous</th><th>Current</th></tr>
+    <tr><td>Who is on the ball</td><td>formula</td><td>classifier trained on other matches</td></tr>
+    <tr><td>Possessions in the whole match</td><td>271</td><td>334</td></tr>
+    <tr><td>Mean possession</td><td>13.6 s</td><td>11.1 s</td></tr>
+    <tr><td>Stoppages</td><td>97</td><td>100</td></tr>
+    <tr><td>Public 5-minute check, spellF1 / macroF1</td><td>0.452 / 0.846</td><td>0.533 / 0.833</td></tr>
+    <tr><td>Seven Bundesliga matches it never saw, spellF1</td><td>0.469</td><td>0.531</td></tr>
+    <tr><td>Two Metrica practice matches, spellF1</td><td>0.595</td><td>0.637</td></tr></table>
+  <h3>Why we changed it</h3>
+  <p>The rules do not allow the public 5 minutes to choose between two versions, and with 17 possessions they could not. On other matches the classifier won in 13 of 14 tests on the Bundesliga games (each scored by a classifier that had never seen that game) and in 8 of 8 on the practice matches.</p>
+  <h3>Earlier steps</h3>
+  <p>Before that: a change of team cost 12 everywhere (191 possessions) until 14 November, then 4 while the ball is in the data (275), then the <a data-goto="keeper">goalkeeper rule</a> (271).</p>
+  <h3>How to use this lane</h3>
+  <p>Filter the doubtful moments by <b>versions disagree</b>. Those are the places where the formula and the classifier give different answers.</p>
+</article>
+
+<article data-key="ball_view" data-title="Ball view alone">
+  <p class="short">What you would get using only the ball: who is on it (read by a classifier trained on other matches), whether it is out, whether it is placed and still. This lane is the same sticky decoder run on that evidence alone. It is sharp when the ball is in the data and blind when it is not: it just repeats its last answer through every gap.</p>
+
+  <h3>1. How firmly is a player on the ball</h3>
+  <p>For each player <i>i</i>, the “grip” depends on the distance <i>d</i> to the ball and on how fast the ball moves relative to him, <i>v</i>:</p>
+  <math display="block"><mrow><msub><mi>g</mi><mi>i</mi></msub><mo>=</mo><mtext>clip</mtext><mo>(</mo><mn>1</mn><mo>−</mo><mfrac><msub><mi>d</mi><mi>i</mi></msub><mrow><mn>2.5</mn><mtext> m</mtext></mrow></mfrac><mo>,</mo><mn>0</mn><mo>,</mo><mn>1</mn><mo>)</mo><mo>·</mo><mrow><mo>(</mo><mn>0.25</mn><mo>+</mo><mn>0.75</mn><mo>·</mo><msup><mi>e</mi><mrow><mo>−</mo><msup><mrow><mo>(</mo><msub><mi>v</mi><mi>i</mi></msub><mo>/</mo><mn>9</mn><mo>)</mo></mrow><mn>2</mn></msup></mrow></msup><mo>)</mo></mrow></mrow></math>
+  <svg viewBox="0 0 560 220" role="img" aria-label="Grip falls in a straight line from 1 at the ball to 0 at 2.5 metres; a fast ball gives a quarter of that">
+    <g style="stroke:var(--line);stroke-width:1;fill:none"><path d="M70 30V180H520"/><path d="M70 30H520M70 105H520" stroke-dasharray="3 4"/></g>
+    <path d="M70 30 L445 180 H520" style="fill:none;stroke:var(--rv-home);stroke-width:3"/>
+    <path d="M70 142.5 L445 180" style="fill:none;stroke:var(--rv-doubt);stroke-width:3;stroke-dasharray:7 5"/>
+    <g style="fill:var(--muted);font:11px Poppins,Arial"><text x="62" y="34" text-anchor="end">1</text><text x="62" y="109" text-anchor="end">0.5</text><text x="62" y="184" text-anchor="end">0</text>
+      <text x="70" y="198" text-anchor="middle">0 m</text><text x="220" y="198" text-anchor="middle">1 m</text><text x="370" y="198" text-anchor="middle">2 m</text><text x="445" y="198" text-anchor="middle">2.5 m</text><text x="295" y="215" text-anchor="middle">distance from the player to the ball</text></g>
+    <g style="fill:var(--ink);font:12px Poppins,Arial"><text x="200" y="66">ball moving with the player</text><text x="150" y="148">ball flying past at 20 m/s</text></g>
+  </svg>
+  <p>A ball at a player's feet and moving with him scores 1. A ball passing a metre away at shooting speed scores about 0.15: he is near it, but he does not have it.</p>
+
+  <h3>2. Which side: learned from other matches</h3>
+  <p>The grip above is no longer the answer; it is one of the inputs. A classifier trained on seven public Bundesliga matches (which carry the answer on every frame) looks at 47 measurements around the ball: each side's grip and distance, the ball's speed, acceleration and change of direction, and summaries of the half second, second and three seconds before and after. It returns <i>L</i>, how much likelier home is than away to have the ball.</p>
+  <math display="block"><mrow><mtext>net</mtext><mo>=</mo><mtext>clip</mtext><mo>(</mo><mn>0.5</mn><mo>·</mo><mi>L</mi><mo>,</mo><mo>−</mo><mn>1</mn><mo>,</mo><mn>1</mn><mo>)</mo><mo>,</mo><mspace width="1em"/><mi>L</mi><mo>=</mo><mi>ln</mi><mfrac><mrow><mi>P</mi><mo>(</mo><mtext>home has it</mtext><mo>)</mo></mrow><mrow><mi>P</mi><mo>(</mo><mtext>away has it</mtext><mo>)</mo></mrow></mfrac></mrow></math>
+  <p>The classifier is much surer of itself than the formula was, so its evidence is scaled down where it argues against “dead ball”: both sides give back 64% of it. Home against away is exactly what the classifier says; alive against dead weighs what the formula's did. Without that, it turned 156 seconds of stoppages into possessions.</p>
+  <math display="block"><mrow><msup><mi>e</mi><mtext>ball</mtext></msup><mo>(</mo><mtext>H</mtext><mo>)</mo><mo>=</mo><mtext>max</mtext><mo>(</mo><mtext>net</mtext><mo>,</mo><mn>0</mn><mo>)</mo><mo>−</mo><mn>0.64</mn><mo>·</mo><mo>|</mo><mtext>net</mtext><mo>|</mo></mrow></math>
+  <h3>2b. The hand-written version it replaced</h3>
+  <math display="block"><mrow><msub><mi>c</mi><mtext>home</mtext></msub><mo>=</mo><munder><mtext>max</mtext><mrow><mi>i</mi><mo>∈</mo><mtext>home</mtext></mrow></munder><msub><mi>g</mi><mi>i</mi></msub><mo>,</mo><mspace width="1em"/><msub><mi>c</mi><mtext>away</mtext></msub><mo>=</mo><munder><mtext>max</mtext><mrow><mi>i</mi><mo>∈</mo><mtext>away</mtext></mrow></munder><msub><mi>g</mi><mi>i</mi></msub><mo>,</mo><mspace width="1em"/><mtext>net</mtext><mo>=</mo><msub><mi>c</mi><mtext>home</mtext></msub><mo>−</mo><msub><mi>c</mi><mtext>away</mtext></msub></mrow></math>
+  <p>Only the difference counts, so a 50/50 duel with a player of each side equally close is worth nothing to either.</p>
+  <math display="block"><mrow><msup><mi>e</mi><mtext>ball</mtext></msup><mo>(</mo><mtext>H</mtext><mo>)</mo><mo>=</mo><mtext>max</mtext><mo>(</mo><mtext>net</mtext><mo>,</mo><mn>0</mn><mo>)</mo><mo>+</mo><mn>0.02</mn><mo>·</mo><mo>[</mo><mtext>home touched it last</mtext><mo>]</mo></mrow></math>
+  <p>and the mirror image for away. The small 0.02 is the challenge's loose-ball rule: a ball nobody controls stays with the side that last clearly had it (a grip difference above 0.3).</p>
+
+  <h3>3. Dead-ball cues</h3>
+  <math display="block"><mrow><msup><mi>e</mi><mtext>ball</mtext></msup><mo>(</mo><mtext>D</mtext><mo>)</mo><mo>=</mo><mn>1.5</mn><mo>·</mo><mo>[</mo><mtext>out</mtext><mo>]</mo><mo>+</mo><mn>1.0</mn><mo>·</mo><mo>[</mo><mtext>still</mtext><mo>]</mo><mo>−</mo><mn>0.3</mn><mo>·</mo><mo>[</mo><mtext>moving</mtext><mo>]</mo></mrow></math>
+  <ul><li><b>out</b>: more than 0.4 m beyond a line.</li><li><b>still</b>: has not moved more than 0.2 m in a second (a placed ball). A player standing over it gets no credit.</li><li><b>moving</b>: inside the pitch and faster than 4 m/s.</li></ul>
+  <p>If a goalkeeper gathers the ball and the tracker then loses it, the ball view keeps crediting his side for up to six seconds: see the <a data-goto="keeper">goalkeeper rule</a>.</p>
+
+  <h3>4. Why it is not enough</h3>
+  <p>The ball is in the data on 63% of graded frames. In the gaps (median about ten seconds, some over two minutes) the ball view has nothing to say. On the public five minutes it scores spellF1 0.52 against 0.53 for the full model, but it finds almost no stoppages (macroF1 0.57 against 0.83). Its real job is to be the teacher: where it is very sure, its answers become the training labels of the <a data-goto="player_view">player view</a>.</p>
+</article>
+
+<article data-key="player_view" data-title="Player view alone">
+  <p class="short">What you would get without ever looking at the ball: a classifier that reads the twenty players, the two cameras and the tagging, and says how likely each state is. It works in the gaps where the ball is missing, and it is the main detector of stoppages. It is slow at exact moments, because it looks at several seconds at once.</p>
+
+  <svg viewBox="0 0 560 150" role="img" aria-label="141 measurements go into a gradient-boosted classifier, which outputs three probabilities">
+    <g style="fill:var(--surface-soft);stroke:var(--line)"><rect x="6" y="20" width="170" height="112" rx="8"/><rect x="216" y="44" width="140" height="64" rx="8"/><rect x="396" y="20" width="158" height="112" rx="8"/></g>
+    <g style="stroke:var(--muted);stroke-width:1.5;fill:none" marker-end="url(#ex-arrow)"><path d="M178 76H212"/><path d="M358 76H392"/></g>
+    <g style="fill:var(--ink);font:12px Poppins,Arial"><text x="18" y="42" style="font-weight:600">141 measurements</text><text x="18" y="62">team shapes and speeds</text><text x="18" y="79">where each camera points</text><text x="18" y="96">is TV on the live shot</text><text x="18" y="113">tagged phases, restarts</text>
+      <text x="286" y="72" text-anchor="middle" style="font-weight:600">boosted trees</text><text x="286" y="90" text-anchor="middle">(no ball)</text>
+      <text x="408" y="42" style="font-weight:600">three probabilities</text><text x="408" y="66">p(home has it)</text><text x="408" y="86">p(away has it)</text><text x="408" y="106">p(dead ball)</text></g>
+  </svg>
+
+  <h3>1. What it looks at</h3>
+  <ul><li><b>Team shape and movement</b>, turned so the home side always attacks to the right: where each team's centre is, how spread it is, how fast players move, how many are walking, and the difference between the two sides. A team in possession spreads out and moves forward; the other closes up.</li>
+    <li><b>Cameras</b>: the point on the pitch each camera is aimed at, its zoom and pan speed, and whether the TV feed is on the live wide shot (a replay or a close-up usually means play has stopped).</li>
+    <li><b>Tagging</b>: the tactical phases and set pieces in the provided Smart Tagging file.</li>
+    <li><b>Context</b>: how ten of these differ 2 and 5 seconds before and after.</li></ul>
+
+  <h3>2. How it learns with no labels</h3>
+  <p>Hand labels on this match are forbidden, so the teacher is the model itself. A frame becomes a training example only when:</p>
+  <ul><li>the <a data-goto="ball_view">ball view</a> is at least 95% sure and the ball is in the data, or</li><li>everybody is walking and the TV has cut away (→ dead ball), or</li><li>it is within a second or two of a tagged set-piece start (→ dead ball).</li></ul>
+  <p>That gives 127,307 examples out of 158,857 graded frames. The match is cut into one-minute blocks dealt into five groups, and every frame is scored by a classifier that never trained on its own block. Agreement with the held-out teacher labels: 87.1%.</p>
+
+  <h3>3. How its opinion enters the model</h3>
+  <p>The classifier answers two questions, weighted separately. Is the ball in play? And if so, whose is it?</p>
+  <math display="block"><mrow><msup><mi>e</mi><mtext>players</mtext></msup><mo>(</mo><mtext>H</mtext><mo>)</mo><mo>=</mo><mn>0.25</mn><mo>·</mo><mi>ln</mi><mo>(</mo><msub><mi>p</mi><mtext>H</mtext></msub><mo>+</mo><msub><mi>p</mi><mtext>A</mtext></msub><mo>)</mo><mo>+</mo><mi>w</mi><mo>·</mo><mi>ln</mi><mfrac><msub><mi>p</mi><mtext>H</mtext></msub><mrow><msub><mi>p</mi><mtext>H</mtext></msub><mo>+</mo><msub><mi>p</mi><mtext>A</mtext></msub></mrow></mfrac><mo>,</mo><mspace width="1em"/><msup><mi>e</mi><mtext>players</mtext></msup><mo>(</mo><mtext>D</mtext><mo>)</mo><mo>=</mo><mn>0.25</mn><mo>·</mo><mi>ln</mi><msub><mi>p</mi><mtext>D</mtext></msub></mrow></math>
+  <p>with <i>w</i> = 0.25 where the ball is not in the data and <i>w</i> = 0.0625 where it is. Where the ball can be seen, the ball view is the teacher this classifier learnt from, and a student should not overrule the teacher on what the teacher can actually see. On the question “is play stopped?” it always has its full say.</p>
+  <h3>4. This lane</h3>
+  <p>The same sticky decoder run on the player view only. On the public five minutes it scores spellF1 0.43 with 10 possessions for 17: good at the big picture, too coarse for short possessions.</p>
+</article>
+
+<article data-key="confidence" data-title="How sure the model is">
+  <p class="short">The percentage next to the model's call, and the three small bars (home, away, dead ball). It answers: of all the label sequences the evidence allows, how much of the weight goes through this label at this frame? High means every plausible story agrees here. It is a ranking of confidence, not a calibrated probability.</p>
+  <h3>How it is computed</h3>
+  <p>The submitted answer is the single best sequence (see <a data-goto="final">Model</a>). The confidence looks at all sequences at once. Give every sequence a weight that grows with its evidence and shrinks with its changes of state:</p>
+  <math display="block"><mrow><mi>W</mi><mo>(</mo><mi>s</mi><mo>)</mo><mo>=</mo><mi>exp</mi><mrow><mo>[</mo><munder><mo>∑</mo><mi>t</mi></munder><msub><mi>E</mi><mi>t</mi></msub><mo>(</mo><msub><mi>s</mi><mi>t</mi></msub><mo>)</mo><mo>−</mo><munder><mo>∑</mo><mtext>changes</mtext></munder><msub><mi>c</mi><mi>t</mi></msub><mo>]</mo></mrow></mrow></math>
+  <p>Then, at frame <i>t</i>:</p>
+  <math display="block"><mrow><mtext>sure</mtext><mo>(</mo><mi>t</mi><mo>,</mo><mi>k</mi><mo>)</mo><mo>=</mo><mfrac><mrow><munder><mo>∑</mo><mrow><mi>s</mi><mo>:</mo><mtext> </mtext><msub><mi>s</mi><mi>t</mi></msub><mo>=</mo><mi>k</mi></mrow></munder><mi>W</mi><mo>(</mo><mi>s</mi><mo>)</mo></mrow><mrow><munder><mo>∑</mo><mi>s</mi></munder><mi>W</mi><mo>(</mo><mi>s</mi><mo>)</mo></mrow></mfrac></mrow></math>
+  <p>There are far too many sequences to list, but the sum has an exact shortcut (the forward–backward algorithm): one pass from the start of the half, one from the end.</p>
+  <h3>How to read it</h3>
+  <ul><li><b>99–100%</b> in the middle of a long possession: nothing nearby argues otherwise.</li><li><b>It dips around every change</b>: the model knows a change happened, but not on which frame.</li><li><b>A long stretch at 50–70%</b> means two stories fit about equally well. Those stretches fill the <a data-goto="doubt">doubtful moments</a> list.</li></ul>
+  <p>The evidence scores are hand-scaled, not probabilities, so “90%” does not mean right nine times in ten. It does mean “more sure than 70%”.</p>
+</article>
+
+<article data-key="doubt" data-title="Doubt and doubtful moments">
+  <p class="short">An amber score from 0 to 1 for every frame, built from five warning signs: low confidence, the two views disagreeing, the two model versions disagreeing, a very short possession, and play called live while the ball is missing. Stretches where it stays high become the doubtful moments, ranked by how much doubt they hold.</p>
+  <h3>The score</h3>
+  <math display="block"><mrow><mtext>doubt</mtext><mo>=</mo><mn>0.55</mn><mo>·</mo><mo>(</mo><mn>1</mn><mo>−</mo><mtext>margin</mtext><mo>)</mo><mo>+</mo><mn>0.30</mn><mo>·</mo><mo>[</mo><mtext>versions</mtext><mo>]</mo><mo>+</mo><mn>0.20</mn><mo>·</mo><mo>[</mo><mtext>views</mtext><mo>]</mo><mo>+</mo><mn>0.25</mn><mo>·</mo><mo>[</mo><mtext>short</mtext><mo>]</mo><mo>+</mo><mn>0.10</mn><mo>·</mo><mo>[</mo><mtext>blind</mtext><mo>]</mo></mrow></math>
+  <p>capped at 1 and averaged over one second.</p>
+  <table class="ex-table"><tr><th>Sign</th><th>Weight</th><th>Exactly</th></tr>
+    <tr><td>Low confidence</td><td>0.55</td><td>margin = <a data-goto="confidence">how sure</a> of the best label minus how sure of the second best. Margin 1 adds nothing; a coin flip adds 0.55.</td></tr>
+    <tr><td>Versions disagree</td><td>0.30</td><td>the current model and the <a data-goto="prev">previous version</a> (hand-written ball view) give different labels</td></tr>
+    <tr><td>Views disagree</td><td>0.20</td><td>the <a data-goto="ball_view">ball view</a> and the <a data-goto="player_view">player view</a> alone give different labels, while the ball is in the data</td></tr>
+    <tr><td>Very short possession</td><td>0.25</td><td>the model's possession here lasts under 2 seconds</td></tr>
+    <tr><td>Ball not in the data</td><td>0.10</td><td>the model says the ball is live but it has been missing for 3 seconds or more</td></tr></table>
+  <h3>From score to moments</h3>
+  <ul><li>A moment is a stretch where the averaged score is at least 0.30. Every frame where the versions disagree and every very short possession is always included.</li><li>Stretches less than 2 seconds apart are joined.</li><li>Playback starts 3 seconds before and ends 2 seconds after, for context.</li><li><b>Rank</b> = the score added up over the moment, in “doubt-seconds”. A long, fairly doubtful stretch outranks a brief, very doubtful one, because more frames are at stake.</li></ul>
+  <h3>What doubt is not</h3>
+  <p>It is the model's own uncertainty, not a list of mistakes. The model can be confidently wrong where nothing looks odd, and right in most doubtful moments. It tells you where looking is most informative.</p>
+</article>
+
+<article data-key="seen" data-title="Ball in the data">
+  <p class="short">Whether the model had a ball position at this frame. Dark: the tactical camera's tracker saw it. Lighter: it was filled in, either from the TV broadcast's tracking or by bridging a gap of up to one second. Empty: no ball at all, so the model decides from the players alone.</p>
+  <h3>The numbers</h3>
+  <table class="ex-table"><tr><th>Source</th><th>Share of graded frames</th></tr>
+    <tr><td>Tactical tracker</td><td>59.3%</td></tr><tr><td>+ TV broadcast tracker, placed on the tactical timeline</td><td>62.6%</td></tr><tr><td>+ gaps of up to 1 second bridged in a straight line</td><td>62.8%</td></tr></table>
+  <p>The gaps are long: the median is about ten seconds and some pass two minutes. Most fall in stoppages, when the ball is in someone's hands or off camera.</p>
+  <h3>How the TV ball gets here</h3>
+  <p>The broadcast recording has its own clock and skips most of half-time. Both recordings give positions in pitch coordinates, so the offset is measured: first by sliding one ball trajectory over the other, then by finding the shift (within ±15 frames) that puts the TV players on top of the tactical players. A TV frame is trusted only if its players land within 1.5 m of the tactical ones, which automatically throws out replays and close-ups. Where both recordings see the ball, they agree to a median 0.72 m.</p>
+  <h3>Why it matters when you watch</h3>
+  <p>With the ball in the data, a change of team costs 4; without it, 12 (see <a data-goto="final">Model</a>). So in the empty stretches the model is deliberately slower to change its mind, and the <a data-goto="player_view">player view</a> is doing all the work.</p>
+</article>
+
+<article data-key="tags" data-title="Tagged restarts">
+  <p class="short">Ticks at the start of every set piece in the Smart Tagging file that came with the match (throw-ins, corners, goal kicks, free kicks, kick-offs), coloured by the team taking it. The model uses them as hints, never as answers.</p>
+  <h3>How the model uses them</h3>
+  <ul><li>As measurements for the <a data-goto="player_view">player view</a>: the time since and until the nearest tagged restart, and its type.</li><li>As teacher labels: from one second before to two seconds after a tagged start counts as dead ball when training.</li><li>The wait before the tagged second-half kick-off is forced to dead ball.</li></ul>
+  <h3>What they are not</h3>
+  <p>They mark when a restart happens, not when play stopped before it, and not every stoppage has one. The public ground truth has long stoppages with no tag at all.</p>
+</article>
+
+<article data-key="events" data-title="Event data">
+  <p class="short">Practice matches only. The answer derived mechanically from the hand-made event list published with these games (passes, shots, recoveries, set pieces). It is the “truth” the model's settings were tested against so far. Your own labels are a second, independent truth.</p>
+  <h3>How it is derived</h3>
+  <ul><li><b>Dead ball</b>: from the end of the last event before each set piece until that set piece.</li><li><b>Otherwise</b>: the team of the latest pass, shot, set piece, recovery, lost ball or ball out. A loose ball stays with the last team.</li></ul>
+  <h3>Why two truths are useful</h3>
+  <p>Events over-count changes: a defender's touch that goes straight back shows as a change of hands. That is why the tests score two readings, a strict one and one that ignores spells under two seconds sandwiched inside the other team's play. If your labels and the event data disagree in a consistent way, that tells us how far the test bench is from the challenge's definition.</p>
+</article>
+
+<article data-key="overlay" data-title="Tracking overlay">
+  <p class="short">The tracking data drawn onto the tactical video: a thin ring under every tracked player in his team's colour, a yellow ring on the ball, and a thick ring on the nearest player if he is within 2.5 m of the ball. It shows what the model was given, which is not always what happened.</p>
+  <h3>How a position becomes a pixel</h3>
+  <p>Each frame comes with a 3×3 matrix <i>M</i> (the homography) that maps a position on the pitch, as a fraction of its length and width, to a pixel:</p>
+  <math display="block"><mrow><mo>(</mo><mtable><mtr><mtd><mi>u</mi></mtd></mtr><mtr><mtd><mi>v</mi></mtd></mtr><mtr><mtd><mi>w</mi></mtd></mtr></mtable><mo>)</mo><mo>=</mo><mi>M</mi><mo>(</mo><mtable><mtr><mtd><mi>x</mi><mo>/</mo><mn>105</mn></mtd></mtr><mtr><mtd><mi>y</mi><mo>/</mo><mn>68</mn></mtd></mtr><mtr><mtd><mn>1</mn></mtd></mtr></mtable><mo>)</mo><mo>,</mo><mspace width="1em"/><mtext>pixel</mtext><mo>=</mo><mo>(</mo><mfrac><mi>u</mi><mi>w</mi></mfrac><mo>,</mo><mfrac><mi>v</mi><mi>w</mi></mfrac><mo>)</mo></mrow></math>
+  <h3>What to look for</h3>
+  <ul><li><b>A ring in the wrong colour</b>: the tracker gave that player to the other team. The ball view will then credit the wrong side.</li><li><b>No yellow ring</b> while you can see the ball: the tracker lost it. Check the “Ball in the data” lane.</li><li><b>The yellow ring away from the real ball</b>: our tracking puts the ball a median 1.9 m from the nearest player; hand-corrected data puts it at 0.3 m.</li><li><b>The thick ring</b> is only the nearest player inside the 2.5 m control radius. The model also takes into account how fast the ball is passing him (see <a data-goto="ball_view">ball view</a>).</li></ul>
+  <p>When you see one of these, <b>take a note</b> (right-click the picture, or press <kbd>T</kbd>). A pattern like “the keeper is ringed in the other team's colour” is something code can fix.</p>
+</article>
+
+<article data-key="keeper" data-title="Goalkeeper rule">
+  <p class="short">When a goalkeeper gathers the ball, his body hides it and the tracker loses it. The model then used to fall back on team shapes, which at that moment still look like the other side attacking. Now, if the ball vanishes while a keeper has it, it stays his for up to six seconds or until it is seen again.</p>
+  <h3>Who is the goalkeeper</h3>
+  <p>Not a name or a shirt number: for each side, the player standing nearest his own goal, provided he is inside his own penalty area (within 16.5 m of the goal line and 20.16 m of the middle). That holds whatever identity the tracker has given him.</p>
+  <h3>When the rule fires</h3>
+  <ul><li>In the ten frames before the ball disappears, that player's <a data-goto="ball_view">grip</a> reached at least 0.3;</li><li>no opponent had a firmer grip in those frames;</li><li>the ball was not out of play.</li></ul>
+  <p>Then, for each frame without a ball, up to six seconds:</p>
+  <math display="block"><mrow><msup><mi>e</mi><mtext>ball</mtext></msup><mo>(</mo><mtext>keeper's side</mtext><mo>)</mo><mo>+</mo><mo>=</mo><mn>1</mn></mrow></math>
+  <p>That is the same as a player standing firmly on a visible ball. Six seconds is the Laws' limit on a keeper holding the ball; after that the model assumes nothing.</p>
+  <h3>How we know it is right</h3>
+  <p>On the two practice matches, in the frames where this rule fires, the answer key says the keeper's side has the ball 92% of the time and the other side 0%. It did not change their scores, because there the player view already got these right. On our match it fires 7 times (41 seconds in all): twice for the home keeper, where the model was already right, and five times for the away keeper, where it used to say “away” only 31% of the time and now says it 68% (the rest is dead ball).</p>
+</article>
+
+<article data-key="metric" data-title="spellF1 and macroF1">
+  <p class="short">The two scores of the competition. spellF1 ranks the teams: it asks how many whole possessions you found, start to end. macroF1 breaks ties: it asks how many frames carry the right label, averaged over the three labels so that the rarer ones count as much.</p>
+  <h3>spellF1</h3>
+  <svg viewBox="0 0 560 120" role="img" aria-label="A true possession and a predicted one overlap; the overlap divided by their union is the IoU">
+    <g style="font:12px Poppins,Arial;fill:var(--ink)"><text x="6" y="34">truth</text><text x="6" y="74">model</text></g>
+    <rect x="70" y="20" width="300" height="22" rx="4" style="fill:var(--rv-home)"/><rect x="150" y="60" width="330" height="22" rx="4" style="fill:var(--rv-home);opacity:.6"/>
+    <g style="stroke:var(--ink);stroke-width:1.5;fill:none"><path d="M150 46V56M370 46V56"/><path d="M150 51H370"/><path d="M70 92V102M480 92V102M70 97H480"/></g>
+    <g style="font:11px Poppins,Arial;fill:var(--muted)" text-anchor="middle"><text x="260" y="114">union</text><text x="430" y="52">overlap</text></g>
+  </svg>
+  <math display="block"><mrow><mtext>IoU</mtext><mo>=</mo><mfrac><mtext>frames in both</mtext><mtext>frames in either</mtext></mfrac></mrow></math>
+  <p>Each true possession is paired with at most one predicted possession of the same team. A pair counts as a hit if its IoU reaches a threshold τ.</p>
+  <math display="block"><mrow><mi>P</mi><mo>=</mo><mfrac><mtext>hits</mtext><mtext>possessions predicted</mtext></mfrac><mo>,</mo><mspace width="1em"/><mi>R</mi><mo>=</mo><mfrac><mtext>hits</mtext><mtext>true possessions</mtext></mfrac><mo>,</mo><mspace width="1em"/><msub><mi>F1</mi><mi>τ</mi></msub><mo>=</mo><mfrac><mrow><mn>2</mn><mi>P</mi><mi>R</mi></mrow><mrow><mi>P</mi><mo>+</mo><mi>R</mi></mrow></mfrac></mrow></math>
+  <math display="block"><mrow><mtext>spellF1</mtext><mo>=</mo><mfrac><mn>1</mn><mn>5</mn></mfrac><munder><mo>∑</mo><mrow><mi>τ</mi><mo>∈</mo><mo>{</mo><mn>0.3</mn><mo>,</mo><mn>0.4</mn><mo>,</mo><mn>0.5</mn><mo>,</mo><mn>0.6</mn><mo>,</mo><mn>0.7</mn><mo>}</mo></mrow></munder><msub><mi>F1</mi><mi>τ</mi></msub></mrow></math>
+  <p>Inventing possessions lowers <i>P</i>. Missing them, or merging two into one, lowers <i>R</i>. Getting the edges wrong fails the stricter thresholds.</p>
+  <h3>macroF1</h3>
+  <math display="block"><mrow><mtext>macroF1</mtext><mo>=</mo><mfrac><mn>1</mn><mn>3</mn></mfrac><mo>(</mo><msub><mi>F1</mi><mtext>H</mtext></msub><mo>+</mo><msub><mi>F1</mi><mtext>A</mtext></msub><mo>+</mo><msub><mi>F1</mi><mtext>D</mtext></msub><mo>)</mo></mrow></math>
+  <p>with each F1 computed over frames. A model that never says “dead ball” gets zero for D and loses a third of the score, however good its team calls are.</p>
+  <h3>Reference points</h3>
+  <table class="ex-table"><tr><th></th><th>spellF1</th><th>macroF1</th></tr>
+    <tr><td>Organisers' baseline, whole match (the published floor)</td><td>0.243</td><td>–</td></tr><tr><td>Organisers' baseline, public 5 minutes</td><td>0.326</td><td>0.621</td></tr><tr><td>Our model, public 5 minutes (17 possessions; range 0.36–0.70)</td><td>0.533</td><td>0.833</td></tr></table>
+</article>
+
+<article data-key="mine" data-title="Your labels">
+  <p class="short">Practice matches only. Your own answer, frame by frame. A label holds from the frame where you set it until the next change. Labelling another game by hand is allowed by the rules; doing it on the challenge match is not, which is why this lane does not exist there.</p>
+  <h3>How to label quickly</h3>
+  <ul><li>Go to where you want to start and press <kbd>1</kbd>, <kbd>2</kbd> or <kbd>3</kbd>. The label then grows as you watch.</li><li>At a change, pause, step back to the first frame of the new team's control, and press the new label.</li><li>Drag a change in this lane to move it. <kbd>⌫</kbd> removes the nearest one. <kbd>Ctrl</kbd> + <kbd>Z</kbd> undoes.</li><li><kbd>0</kbd> stops labelling from this frame.</li></ul>
+  <h3>With or without the model</h3>
+  <p><b>Hide model</b> makes your labels an independent test. <kbd>Enter</kbd> copies the model's answer for you to correct, which is faster but leans your labels towards the model. The saved file records which way you worked.</p>
+  <h3>What happens to them</h3>
+  <p>They are saved to <code>review/labels/</code> in the repository. “Score against my labels” runs the competition's own <a data-goto="metric">metric</a>. If they are ever used to choose a setting, the technical document must say what was labelled, how, by whom and how much.</p>
+</article>
+
+<article data-key="notes" data-title="Notes">
+  <p class="short">Your observations, tied to a moment of the match, with an optional picture of the frame that you can draw on. They are for finding causes that code can fix, like “the keeper is ringed in the other team's colour”.</p>
+  <h3>What to write on the challenge match</h3>
+  <p>Describe what is happening and what may be confusing the model: who is where, what the tracker shows, what the camera does. A pattern seen three times is worth more than one moment.</p>
+  <h3>What not to write</h3>
+  <p>Not a list of who really has the ball frame by frame. The rules forbid hand labels on this match for any purpose, and a tally of right and wrong answers is exactly that. Notes are never used to score the model or to set a rule for specific frames; they point to general problems.</p>
+  <h3>Where they live</h3>
+  <p>Next to the match data on this computer or the team's server, never in the repository. Pictures are frames of the match video: they stay there too, and the AI assistant that helps with the code reads only the text.</p>
+</article>

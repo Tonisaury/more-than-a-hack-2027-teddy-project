@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Possession Review</title>
+<link rel="stylesheet" href="static/app.css">
+</head>
+<body>
+<div id="rv" class="rv" data-theme="dark">
+  <header class="rv-bar">
+    <div class="rv-title">
+      <span class="rv-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5 16 10.4 14.5 15h-5L8 10.4z"/><path d="M12 3v4.5M3.6 9.3 8 10.4M20.4 9.3 16 10.4M6.5 19l3-4M17.5 19l-3-4"/></svg></span>
+      <h1>Possession Review</h1>
+    </div>
+    <nav class="rv-matches" id="matches" aria-label="Match"></nav>
+    <div class="rv-actions">
+      <label class="rv-switch" id="blind-wrap" hidden title="Hide everything the model says while you label, so your labels are not influenced by it"><input type="checkbox" id="blind"><span>Hide model</span></label>
+      <button type="button" class="rv-btn ghost" id="theme" aria-label="Switch light and dark">Light</button>
+      <button type="button" class="rv-btn ghost" id="explain-open" aria-haspopup="dialog" title="What every lane and number means, with the formulas (I)">How it works</button>
+      <button type="button" class="rv-btn ghost" id="help-open" aria-haspopup="dialog">Shortcuts <kbd>?</kbd></button>
+    </div>
+  </header>
+
+  <div class="rv-banner" id="banner" role="status" hidden><span class="rv-banner-icon" aria-hidden="true">i</span><p id="banner-text"></p><button type="button" class="rv-btn ghost small" id="banner-close" aria-label="Dismiss">Dismiss</button></div>
+
+  <main class="rv-main">
+    <section class="rv-stage-col" aria-label="Picture">
+      <div class="rv-stage-wrap">
+        <div class="rv-stage" id="stage" data-doubt="0">
+          <video id="video" playsinline muted preload="metadata" tabindex="-1"></video>
+          <canvas id="pitch" aria-label="Pitch map"></canvas>
+          <canvas id="overlay" aria-hidden="true"></canvas>
+          <div class="rv-hud" id="hud">
+            <div class="rv-hud-top">
+              <div class="rv-call" id="call" data-label="X"><button type="button" class="rv-call-who" id="call-who" data-explain="final" title="What is this?">–</button><button type="button" class="rv-call-sure" id="call-sure" data-explain="confidence" title="What is this?"></button>
+                <span class="rv-bars" data-explain="confidence"><i id="bar-h" class="h"></i><i id="bar-a" class="a"></i><i id="bar-d" class="d"></i></span></div>
+              <div class="rv-doubt" id="doubt-flag" data-explain="doubt" title="What is this?" hidden><strong id="doubt-title">Doubtful moment</strong><span id="doubt-why"></span></div>
+            </div>
+            <div class="rv-hud-bottom">
+              <div class="rv-views" id="views"></div>
+              <div class="rv-mine" id="mine" hidden data-label="X">You: <strong id="mine-who">not labelled</strong></div>
+            </div>
+          </div>
+          <canvas id="minimap" class="rv-minimap" aria-label="Pitch map"></canvas>
+          <div class="rv-stage-msg" id="stage-msg" hidden></div>
+          <div class="rv-veil" id="veil" hidden>Picture hidden (veil mode)</div>
+        </div>
+      </div>
+
+      <div class="rv-transport" role="group" aria-label="Playback">
+        <button type="button" class="rv-btn icon" id="back-1s" title="Back 1 second (Shift + ←)" aria-label="Back one second">−1s</button>
+        <button type="button" class="rv-btn icon" id="back-1f" title="Back 1 frame (←)" aria-label="Back one frame">−1</button>
+        <button type="button" class="rv-btn primary play" id="play" title="Play / pause (Space)" aria-label="Play">Play</button>
+        <button type="button" class="rv-btn icon" id="fwd-1f" title="Forward 1 frame (→)" aria-label="Forward one frame">+1</button>
+        <button type="button" class="rv-btn icon" id="fwd-1s" title="Forward 1 second (Shift + →)" aria-label="Forward one second">+1s</button>
+        <label class="rv-field"><span class="sr-only">Speed</span>
+          <select id="speed" title="Playback speed ([ and ])"><option value="0.25">¼×</option><option value="0.5">½×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+        <div class="rv-clock"><strong id="clock">–</strong><span id="frame-no"></span></div>
+        <span class="rv-grow"></span>
+        <div class="rv-seg" id="source" role="group" aria-label="Picture source"></div>
+        <label class="rv-switch" id="ov-wrap" title="Draw the tracked players and ball on the video (O)"><input type="checkbox" id="ov" checked><span>Tracking overlay</span></label><button type="button" class="rv-info" id="ov-info" data-explain="overlay" aria-label="About the tracking overlay">i</button>
+        <label class="rv-switch" id="map-wrap" title="Small pitch map in the corner (M)"><input type="checkbox" id="map" checked><span>Map</span></label>
+      </div>
+
+      <div class="rv-labelbar" id="labelbar" hidden role="group" aria-label="Your labels">
+        <span class="rv-labelbar-title">From this frame:</span>
+        <button type="button" class="rv-btn lab h" data-lab="0"><kbd>1</kbd> <span id="lab-home">Home</span></button>
+        <button type="button" class="rv-btn lab a" data-lab="1"><kbd>2</kbd> <span id="lab-away">Away</span></button>
+        <button type="button" class="rv-btn lab d" data-lab="2"><kbd>3</kbd> Dead ball</button>
+        <button type="button" class="rv-btn lab x" data-lab="3" title="Stop labelling from this frame"><kbd>0</kbd> Not labelled</button>
+        <span class="rv-sep"></span>
+        <button type="button" class="rv-btn" id="fill" title="Fill the unlabelled frames just before the playhead (up to 30 s) with the model's answer, then correct it"><kbd>Enter</kbd> Use model's answer</button>
+        <button type="button" class="rv-btn" id="del-boundary" title="Remove the nearest change before the playhead"><kbd>⌫</kbd> Remove change</button>
+        <button type="button" class="rv-btn icon" id="undo" title="Undo (Ctrl + Z)" aria-label="Undo">Undo</button>
+        <button type="button" class="rv-btn icon" id="redo" title="Redo (Ctrl + Shift + Z)" aria-label="Redo">Redo</button>
+        <span class="rv-grow"></span>
+        <label class="rv-switch" title="As you play or step forward, the label you are in extends with the playhead"><input type="checkbox" id="follow" checked><span>Extend as I watch</span></label>
+        <span class="rv-save" id="save-state" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <aside class="rv-side" aria-label="Review">
+      <div class="rv-tabs" role="tablist">
+        <button type="button" role="tab" class="rv-tab" id="tab-moments" data-tab="moments" aria-selected="true">Doubtful moments</button>
+        <button type="button" role="tab" class="rv-tab" id="tab-labels" data-tab="labels" aria-selected="false" hidden>Your labels</button>
+        <button type="button" role="tab" class="rv-tab" id="tab-notes" data-tab="notes" aria-selected="false">Notebook</button>
+      </div>
+
+      <section class="rv-panel" id="panel-moments" role="tabpanel" aria-labelledby="tab-moments">
+        <div class="rv-panel-tools">
+          <select id="m-filter" aria-label="Show"></select>
+          <select id="m-sort" aria-label="Order"><option value="rank">Most doubtful first</option><option value="time">Match order</option></select>
+        </div>
+        <div class="rv-panel-tools">
+          <button type="button" class="rv-btn small" id="m-prev" title="Previous moment (P)">Previous</button>
+          <button type="button" class="rv-btn small" id="m-next" title="Next moment (N)">Next</button>
+          <label class="rv-switch" title="Repeat the selected moment (R)"><input type="checkbox" id="loop"><span>Loop</span></label>
+          <label class="rv-switch" title="Play the doubtful moments one after another and skip the rest"><input type="checkbox" id="reel"><span>Only these</span></label>
+        </div>
+        <p class="rv-progress"><span id="m-progress"></span> <button type="button" class="rv-info" data-explain="doubt" aria-label="What makes a moment doubtful">i</button></p>
+        <ol class="rv-moments" id="moments"></ol>
+      </section>
+
+      <section class="rv-panel" id="panel-labels" role="tabpanel" aria-labelledby="tab-labels" hidden>
+        <details class="rv-guide" open><summary>What counts (the challenge's definitions)</summary>
+          <ul>
+            <li>While the ball is in play, one team always has it. A <strong>loose or contested ball stays with the last team</strong> that had it.</li>
+            <li>Possession changes only when the other team gains <strong>controlled</strong> possession: it keeps the ball, or strings passes together.</li>
+            <li><strong>Not a change:</strong> a touch without control, a deflection that does not intercept, an aerial duel won with no control after it.</li>
+            <li><strong>Dead ball</strong> from the moment play stops until the restart is taken. Do not say who owns a dead ball.</li>
+            <li>Mark the change at the <strong>first frame</strong> of the new team's control.</li>
+          </ul></details>
+        <div class="rv-card"><h3>Labelled so far</h3><dl class="rv-stats" id="l-stats"></dl></div>
+        <div class="rv-card"><h3>Frame agreement with your labels</h3><p class="rv-hint">Share of your labelled frames where each source says the same.</p><table class="rv-table" id="l-agree"></table></div>
+        <div class="rv-card"><h3>Competition metric</h3><p class="rv-hint" id="l-score-hint">Scores each decoder against your labels with the organisers' own code.</p>
+          <button type="button" class="rv-btn primary small" id="l-score">Score against my labels</button><div id="l-score-out"></div></div>
+        <div class="rv-card"><h3>Keep</h3>
+          <label class="rv-field block"><span>Labelled by</span><input type="text" id="l-by" maxlength="80" placeholder="Name, for the technical document"></label>
+          <p class="rv-hint">Saved automatically to <code>review/labels/</code> in the repository. Hand labels on other games are allowed, and must be described in the technical document.</p>
+          <div class="rv-row"><button type="button" class="rv-btn small" id="l-export">Write frame,label CSV</button><button type="button" class="rv-btn small critical" id="l-clear">Clear all labels</button></div>
+          <p class="rv-hint" id="l-export-out" aria-live="polite"></p></div>
+      </section>
+
+      <section class="rv-panel" id="panel-notes" role="tabpanel" aria-labelledby="tab-notes" hidden>
+        <div class="rv-panel-tools">
+          <button type="button" class="rv-btn primary small" id="note-new" title="Take a note about the frame on screen"><kbd>T</kbd> Note this moment</button>
+          <select id="note-filter" aria-label="Show"><option value="all">All notes</option><option value="moment">Selected moment only</option></select>
+          <button type="button" class="rv-info" data-explain="notes" aria-label="About notes">i</button>
+        </div>
+        <ol class="rv-notes" id="note-list"></ol>
+        <details class="rv-guide" id="general-notes"><summary>General observations</summary>
+          <p class="rv-hint" id="notes-hint"></p>
+          <textarea id="notes" spellcheck="false" aria-label="General observations" placeholder="Patterns you notice…"></textarea>
+          <p class="rv-save" id="notes-state" aria-live="polite"></p></details>
+      </section>
+    </aside>
+  </main>
+
+  <footer class="rv-timeline" aria-label="Timeline">
+    <div class="rv-tl-tools">
+      <button type="button" class="rv-btn small" id="z-out" aria-label="Zoom out" title="Zoom out (−)">−</button>
+      <button type="button" class="rv-btn small" id="z-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
+      <button type="button" class="rv-btn small" id="z-fit" title="Show the whole match (F)">Whole match</button>
+      <button type="button" class="rv-btn small" id="z-min" title="Show one minute around the playhead">1 min</button>
+      <label class="rv-switch"><input type="checkbox" id="tl-follow" checked><span>Follow playhead</span></label>
+      <span class="rv-grow"></span>
+      <span class="rv-legend"><i class="h"></i><span id="lg-home">Home</span><i class="a"></i><span id="lg-away">Away</span><i class="d"></i>Dead ball<i class="q"></i>Doubt</span>
+    </div>
+    <canvas id="overview" class="rv-overview" aria-label="Whole match overview"></canvas>
+    <canvas id="timeline" class="rv-lanes" tabindex="0" aria-label="Timeline lanes. Click to move the playhead, scroll to zoom."></canvas>
+  </footer>
+
+  <div class="rv-pop" id="pop" role="dialog" aria-labelledby="pop-title" hidden>
+    <div class="rv-pop-head"><h3 id="pop-title"></h3><button type="button" class="rv-btn ghost small" id="pop-close">Close</button></div>
+    <p id="pop-text"></p>
+    <p class="rv-pop-when" id="pop-when"></p>
+    <dl class="rv-stats" id="pop-facts"></dl>
+    <button type="button" class="rv-btn primary small" id="pop-more">Full explanation, with the formulas</button>
+  </div>
+  <div class="rv-menu" id="menu" role="menu" hidden></div>
+
+  <dialog id="explain" class="rv-dialog wide" aria-labelledby="explain-title">
+    <div class="rv-explain">
+      <nav id="explain-nav" aria-label="Topics"></nav>
+      <div class="rv-explain-body">
+        <h2 id="explain-title"></h2>
+        <p class="rv-pop-when" id="explain-when"></p>
+        <dl class="rv-stats" id="explain-facts"></dl>
+        <div id="explain-content" class="rv-prose"></div>
+      </div>
+    </div>
+    <form method="dialog"><button class="rv-btn primary">Close</button></form>
+  </dialog>
+
+  <dialog id="note-dialog" class="rv-dialog wide" aria-labelledby="note-title">
+    <h2 id="note-title">New note</h2>
+    <p class="rv-hint" id="note-where"></p>
+    <div class="rv-note-form">
+      <label class="rv-field block"><span>What is it about</span><select id="note-topic"></select></label>
+      <label class="rv-field block"><span>What you see</span><textarea id="note-text" rows="4" placeholder="For example: the keeper has the ball in his hands but the ring is on the striker next to him"></textarea></label>
+      <p class="rv-hint" id="note-rule"></p>
+    </div>
+    <div class="rv-row">
+      <button type="button" class="rv-btn small" id="note-snap">Add a picture of this frame</button>
+      <span class="rv-row" id="draw-tools" hidden>
+        <span class="rv-seg" role="group" aria-label="Drawing tool"><button type="button" data-tool="pen" aria-pressed="true">Pen</button><button type="button" data-tool="arrow" aria-pressed="false">Arrow</button><button type="button" data-tool="circle" aria-pressed="false">Circle</button></span>
+        <span class="rv-swatches" role="group" aria-label="Colour"><button type="button" data-colour="#ffe14d" aria-pressed="true" aria-label="Yellow" style="background:#ffe14d"></button><button type="button" data-colour="#ff5a4d" aria-pressed="false" aria-label="Red" style="background:#ff5a4d"></button><button type="button" data-colour="#ffffff" aria-pressed="false" aria-label="White" style="background:#ffffff"></button><button type="button" data-colour="#4dd2ff" aria-pressed="false" aria-label="Light blue" style="background:#4dd2ff"></button></span>
+        <button type="button" class="rv-btn small" id="note-undo">Undo stroke</button>
+        <button type="button" class="rv-btn small critical" id="note-unsnap">Remove picture</button>
+      </span>
+    </div>
+    <canvas id="note-canvas" class="rv-note-canvas" hidden aria-label="Picture of the frame. Draw on it with the pointer."></canvas>
+    <div class="rv-row end">
+      <button type="button" class="rv-btn critical" id="note-delete" hidden>Delete note</button>
+      <span class="rv-save" id="note-state" aria-live="polite"></span><span class="rv-grow"></span>
+      <button type="button" class="rv-btn" id="note-cancel">Cancel</button>
+      <button type="button" class="rv-btn primary" id="note-save">Save note</button>
+    </div>
+  </dialog>
+
+  <dialog id="help" class="rv-dialog" aria-labelledby="help-title">
+    <h2 id="help-title">Shortcuts</h2>
+    <div class="rv-keys">
+      <div><h3>Playback</h3><dl>
+        <dt><kbd>Space</kbd></dt><dd>Play / pause</dd>
+        <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>One frame</dd>
+        <dt><kbd>Shift</kbd> + <kbd>←</kbd> <kbd>→</kbd></dt><dd>One second</dd>
+        <dt><kbd>Ctrl</kbd> + <kbd>←</kbd> <kbd>→</kbd></dt><dd>Five seconds</dd>
+        <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Slower / faster</dd>
+        <dt><kbd>V</kbd></dt><dd>Next picture source</dd>
+        <dt><kbd>O</kbd> <kbd>M</kbd></dt><dd>Tracking overlay, pitch map</dd></dl></div>
+      <div><h3>Doubtful moments</h3><dl>
+        <dt><kbd>N</kbd> <kbd>P</kbd></dt><dd>Next / previous moment</dd>
+        <dt><kbd>R</kbd></dt><dd>Loop the selected moment</dd>
+        <dt><kbd>W</kbd></dt><dd>Mark the moment as watched</dd>
+        <dt><kbd>T</kbd></dt><dd>Take a note about the frame on screen</dd>
+        <dt><kbd>I</kbd></dt><dd>How it works</dd>
+        <dt>Right-click</dt><dd>Note or explain what is under the pointer</dd></dl>
+        <h3>Timeline</h3><dl>
+        <dt>Scroll</dt><dd>Zoom at the pointer</dd>
+        <dt><kbd>Shift</kbd> + scroll</dt><dd>Move left / right</dd>
+        <dt><kbd>+</kbd> <kbd>−</kbd> <kbd>F</kbd></dt><dd>Zoom in, out, whole match</dd></dl></div>
+      <div id="help-labels"><h3>Labelling (practice matches)</h3><dl>
+        <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Home, away, dead ball from this frame</dd>
+        <dt><kbd>0</kbd></dt><dd>Not labelled from this frame</dd>
+        <dt><kbd>Enter</kbd></dt><dd>Use the model's answer for the gap before the playhead</dd>
+        <dt><kbd>⌫</kbd></dt><dd>Remove the nearest change before the playhead</dd>
+        <dt><kbd>Ctrl</kbd> + <kbd>Z</kbd></dt><dd>Undo (<kbd>Shift</kbd> to redo)</dd>
+        <dt>Drag</dt><dd>Move a change in the “Your labels” lane</dd></dl></div>
+    </div>
+    <form method="dialog"><button class="rv-btn primary" autofocus>Close</button></form>
+  </dialog>
+</div>
+<script src="static/app.js"></script>
+</body>
+</html>

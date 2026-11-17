@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Possession Workspace</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div id="vw" class="vw">
+  <header class="vw-bar">
+    <div class="vw-bar-title">
+      <span class="vw-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5 16 10.4 14.5 15h-5L8 10.4z"/><path d="M12 3v4.5M3.6 9.3 8 10.4M20.4 9.3 16 10.4M6.5 19l3-4M17.5 19l-3-4"/></svg></span>
+      <h1>Possession Workspace</h1><span class="vw-badge">More than a Hack 2027</span>
+    </div>
+    <nav class="vw-quick" id="vw-quick" aria-label="Quick cards"></nav>
+    <div class="vw-bar-actions">
+      <details class="vw-menu" id="vw-tools"><summary><span data-icon="settings"></span><span>Tools</span></summary><div>
+        <label for="vw-layout">Canvas layout</label>
+        <select id="vw-layout"><option value="auto">Automatic grid</option><option value="1">One column</option><option value="2">Two columns</option><option value="3">Three columns</option></select>
+        <label for="vw-theme">Appearance</label>
+        <select id="vw-theme"><option value="light">Light</option><option value="dark">Dark</option></select>
+        <label for="vw-sensitivity">Microphone sensitivity</label>
+        <select id="vw-sensitivity"><option value="balanced">Balanced</option><option value="soft">Soft voice</option><option value="noisy">Noisy room</option></select>
+        <label for="vw-microphone">Microphone type</label>
+        <select id="vw-microphone"><option value="far_field">Laptop / room microphone</option><option value="near_field">Headset / close microphone</option></select>
+        <p>Soft voice if quiet speech is missed; Noisy room if background sound triggers the assistant.</p>
+      </div></details>
+      <button type="button" class="vw-icon-button" id="vw-transcript-toggle" aria-controls="vw-transcript" aria-expanded="false" aria-label="Show transcript" title="Transcript"><span data-icon="chat"></span></button>
+      <button type="button" class="vw-icon-button" id="vw-clear" aria-label="Clear unpinned cards" title="Clear unpinned cards"><span data-icon="trash"></span></button>
+      <button class="secondary" id="vw-reset" type="button"><span data-icon="plus"></span><span>New</span></button>
+    </div>
+  </header>
+
+  <div class="vw-main">
+    <section class="vw-canvas" aria-label="Canvas">
+      <div id="vw-alert" class="vw-banner" role="alert" hidden><span data-icon="alert"></span><p id="vw-alert-text"></p><button type="button" class="vw-icon-button" id="vw-alert-close" aria-label="Dismiss message"><span data-icon="close"></span></button></div>
+      <div id="vw-empty" class="vw-empty">
+        <div class="vw-empty-art" aria-hidden="true">
+          <div class="vw-mini-card vw-mini-strip"><i class="h" style="width:34%"></i><i class="a" style="width:16%"></i><i class="d" style="width:12%"></i><i class="h" style="width:38%"></i></div>
+          <div class="vw-mini-card vw-mini-pitch"><span></span><b class="h" style="left:22%;top:30%"></b><b class="h" style="left:40%;top:62%"></b><b class="a" style="left:58%;top:40%"></b><b class="a" style="left:74%;top:66%"></b><em style="left:44%;top:46%"></em></div>
+          <div class="vw-mini-card vw-mini-bars"><i style="height:78%"></i><i style="height:52%"></i><i style="height:34%"></i><i style="height:60%"></i></div>
+        </div>
+        <h2>Ask about the match, and it appears here.</h2>
+        <p>Who has the ball, how it was worked out, what the score means and how far to trust it. Start talking, type below, or pick a starting point.</p>
+        <div class="vw-suggestions" id="vw-suggestions"></div>
+      </div>
+      <div id="vw-stage" class="vw-stage" hidden></div>
+      <div id="vw-caption" class="vw-caption" aria-hidden="true" hidden><p><b></b><span></span></p></div>
+    </section>
+    <aside class="vw-transcript" id="vw-transcript" aria-label="Transcript" hidden>
+      <div class="vw-transcript-head"><h2>Transcript</h2><button type="button" class="vw-icon-button" id="vw-transcript-close" aria-label="Hide transcript"><span data-icon="close"></span></button></div>
+      <div id="vw-messages" class="vw-messages" role="log" aria-label="Conversation"><p class="vw-welcome">What you and the assistant say appears here. Nothing is saved: it disappears when you reload.</p></div>
+    </aside>
+  </div>
+
+  <footer class="vw-dock">
+    <button id="vw-connect" class="vw-mic" type="button"><span data-icon="mic"></span><i class="vw-stop" aria-hidden="true"></i><span id="vw-connect-label">Start talking</span></button>
+    <div class="vw-voice">
+      <div class="vw-wave" id="vw-wave"><canvas id="vw-wave-canvas" width="232" height="64" aria-hidden="true"></canvas><span id="vw-speaker" class="vw-speaker" hidden></span></div>
+      <div class="vw-voice-text"><p id="vw-status" role="status">Ready when you are</p><p class="vw-privacy" id="vw-privacy">AI voice. Your questions and summary numbers go to OpenAI. Tracking data and positions stay on this computer.</p></div>
+    </div>
+    <div class="vw-voice-controls"><button class="secondary" id="vw-mute" type="button" aria-pressed="false" hidden>Mute</button><button class="secondary" id="vw-interrupt" type="button" hidden>Stop reply</button><button class="secondary" id="vw-play" type="button" hidden>Enable audio</button></div>
+    <form id="vw-composer" class="vw-composer"><label class="sr-only" for="vw-input">Type a question for the assistant</label><input id="vw-input" type="text" maxlength="3000" autocomplete="off" placeholder="Or type what you want to understand…" required><button type="submit" id="vw-send" aria-label="Send message"><span data-icon="send"></span></button></form>
+  </footer>
+  <div id="vw-live" class="sr-only" aria-live="polite"></div>
+  <audio id="vw-audio" autoplay></audio>
+</div>
+<script src="/static/vendor/purify-3.4.16.min.js" defer></script>
+<script src="/static/charts.js" defer></script>
+<script src="/static/app.js" defer></script>
+</body>
+</html>
